@@ -1,4 +1,5 @@
 import 'package:bill_calculator_app/helper/extensions.dart';
+import 'package:bill_calculator_app/statistics_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:bill_calculator_app/models/billiard_table.dart';
@@ -124,7 +125,8 @@ class _BillCalculatorHomePageState extends State<BillCalculatorHomePage> {
         ];
       });
     }
-
+    // Thêm dòng này để kiểm tra
+    print('Loaded tables: ${_tables.length} tables');
     // Tải danh sách menu items
     final String? menuItemsJsonString = prefs.getString(_menuItemsKey);
     if (menuItemsJsonString != null) {
@@ -145,6 +147,8 @@ class _BillCalculatorHomePageState extends State<BillCalculatorHomePage> {
         ];
       });
     }
+    // Thêm dòng này để kiểm tra
+    print('Loaded menu items: ${_menuItems.length} items');
     // Tải transactions (MỚI THÊM)
     final String? transactionsJsonString = prefs.getString(_transactionsKey);
     if (transactionsJsonString != null) {
@@ -154,6 +158,14 @@ class _BillCalculatorHomePageState extends State<BillCalculatorHomePage> {
             .map((json) => Transaction.fromJson(json as Map<String, dynamic>))
             .toList();
       });
+    }
+    // Thêm dòng này để kiểm tra
+    print('Loaded transactions: ${_transactions.length} transactions');
+    // In ra thời gian của một vài giao dịch đầu tiên để kiểm tra
+    if (_transactions.isNotEmpty) {
+      for (int i = 0; i < (_transactions.length > 5 ? 5 : _transactions.length); i++) {
+        print('Transaction ${i+1} time: ${_transactions[i].transactionTime}');
+      }
     }
 
   }
@@ -188,6 +200,22 @@ class _BillCalculatorHomePageState extends State<BillCalculatorHomePage> {
             icon: const Icon(Icons.settings),
             onPressed: () {
               _showSettingsDialog();
+            },
+          ),
+          // THÊM NÚT THỐNG KÊ Ở ĐÂY
+          IconButton(
+            icon: const Icon(Icons.analytics), // Biểu tượng cho thống kê
+            tooltip: 'Thống kê doanh thu',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StatisticsScreen(
+                    transactions: _transactions, // Truyền danh sách giao dịch
+                    menuItems: _menuItems, // Truyền danh sách món ăn (có thể cần cho thống kê chi tiết hơn sau này)
+                  ),
+                ),
+              );
             },
           ),
           IconButton( 
@@ -366,8 +394,11 @@ class _BillCalculatorHomePageState extends State<BillCalculatorHomePage> {
                                 table: table,
                                 hourlyRate: _hourlyRate,
                                 menuItems: _menuItems,
+
                                 // Hàm onConfirmPayment này sẽ được gọi KHI THANH TOÁN THÀNH CÔNG
                                 onConfirmPayment: (BilliardTable confirmedTable) {
+                                  // THÊM DÒNG NÀY ĐỂ ĐẢM BẢO endTime ĐƯỢC THIẾT LẬP
+                                  confirmedTable.stop(); // <-- THÊM DÒNG NÀY VÀO ĐÂY
                                   // Vùng code này chỉ chạy khi người dùng bấm THANH TOÁN trên BillDetailScreen
                                   if (confirmedTable.startTime != null && confirmedTable.endTime != null) {
                                     final double playTimeBill = _calculateBill(confirmedTable.displayTotalTime);
@@ -412,6 +443,7 @@ class _BillCalculatorHomePageState extends State<BillCalculatorHomePage> {
                           });
                         },
                       ),
+
                     ],
                   ),
                 ],
