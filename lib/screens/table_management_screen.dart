@@ -1,227 +1,199 @@
 // lib/screens/table_management_screen.dart
 import 'package:flutter/material.dart';
-import 'package:bill_calculator_app/models/billiard_table.dart'; // Đảm bảo import này
+import 'package:provider/provider.dart';
 
+import 'package:bill_calculator_app/models/billiard_table.dart';
+import 'package:bill_calculator_app/providers/app_data_provider.dart';
+
+//Để quản lý thêm, sửa, xóa bàn bi-a.
 class TableManagementScreen extends StatefulWidget {
-  final List<BilliardTable> initialTables;
-  final Function(List<BilliardTable>) onSave;
-
-  const TableManagementScreen({
-    super.key,
-    required this.initialTables,
-    required this.onSave,
-  });
+  const TableManagementScreen({super.key});
 
   @override
   State<TableManagementScreen> createState() => _TableManagementScreenState();
 }
 
 class _TableManagementScreenState extends State<TableManagementScreen> {
-  late List<BilliardTable> _tables; // Danh sách bàn cục bộ để chỉnh sửa
+  // Controller cho form thêm bàn mới
+  final TextEditingController _nameController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    // Sao chép danh sách ban đầu để tránh chỉnh sửa trực tiếp danh sách gốc
-    _tables = List.from(widget.initialTables);
-  }
-
-  // Hàm hiển thị dialog để thêm/chỉnh sửa bàn
-  void _showTableDialog({BilliardTable? tableToEdit}) {
-    // KHAI BÁO TextEditingController VÀ BIẾN ERROR CỤC BỘ TRONG HÀM NÀY
-    final _idController = TextEditingController(text: tableToEdit?.id ?? '');
-    String? _dialogIdError; // Biến lỗi cục bộ cho dialog
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setInnerState) {
-            return AlertDialog(
-              title: Text(tableToEdit == null ? 'Thêm Bàn Mới' : 'Chỉnh sửa Bàn'),
-              content: TextField(
-                controller: _idController, // Sử dụng controller cục bộ
-                decoration: InputDecoration(
-                  labelText: 'ID Bàn (ví dụ: Bàn 7)',
-                  hintText: 'ví dụ: Bàn 7',
-                  errorText: _dialogIdError, // Sử dụng biến error cục bộ
-                  border: const OutlineInputBorder(),
-                ),
-                enabled: tableToEdit == null, // ID chỉ cho phép chỉnh sửa khi thêm mới
-                onChanged: (value) {
-                  setInnerState(() {
-                    _dialogIdError = null; // Xóa lỗi khi người dùng nhập
-                  });
-                },
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('Hủy'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-                ElevatedButton(
-                  child: Text(tableToEdit == null ? 'Thêm' : 'Cập nhật'),
-                  onPressed: () {
-                    bool isValid = true;
-                    setInnerState(() {
-                      _dialogIdError = null; // Reset lỗi trong dialog
-                      if (_idController.text.trim().isEmpty) {
-                        _dialogIdError = 'ID bàn không được để trống';
-                        isValid = false;
-                      } else if (tableToEdit == null && _tables.any((table) => table.id == _idController.text.trim())) {
-                        _dialogIdError = 'ID bàn đã tồn tại';
-                        isValid = false;
-                      }
-                    });
-
-                    if (!isValid) return;
-
-                    final newTableId = _idController.text.trim();
-
-                    // Cần setState của _TableManagementScreenState để cập nhật UI danh sách bàn
-                    // bên ngoài dialog
-                    setState(() {
-                      if (tableToEdit == null) {
-                        _tables.add(BilliardTable(id: newTableId));
-                      } else {
-                        // Hiện tại ID không thể sửa khi edit, nên phần này đơn giản là giữ nguyên
-                        // Nếu sau này muốn cho phép sửa ID khi edit, logic sẽ phức tạp hơn
-                        // vì cần cập nhật ID của bàn đang tồn tại.
-                        // Với enabled: tableToEdit == null, chúng ta không cần xử lý thay đổi ID ở đây.
-                      }
-                    });
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-      // Đây là nơi DUY NHẤT để dispose controller cục bộ này
-      // Sử dụng addPostFrameCallback để đảm bảo dispose sau khi khung hình cuối cùng được vẽ
-    ).then((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _idController.dispose();
-        debugPrint('TextEditingController for table dialog disposed via post-frame callback.');
-      });
-    });
-  }
-
-  // Hàm xác nhận xóa bàn
-  void _confirmDeleteTable(BilliardTable tableToDelete) {
-    if (tableToDelete.isOccupied) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Không thể xóa bàn'),
-          content: Text('Bàn ${tableToDelete.id} đang có khách. Vui lòng dừng bàn trước khi xóa.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Xác nhận xóa'),
-          content: Text('Bạn có chắc chắn muốn xóa bàn "${tableToDelete.id}" không?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Hủy'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Xóa'),
-              onPressed: () {
-                setState(() {
-                  _tables.removeWhere((table) => table.id == tableToDelete.id);
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Quản lý Bàn Bida'),
-        centerTitle: true,
-      ),
-      body: _tables.isEmpty
-          ? const Center(
-        child: Text('Chưa có bàn nào. Hãy thêm bàn mới!'),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.all(8.0),
-        itemCount: _tables.length,
-        itemBuilder: (context, index) {
-          final table = _tables[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 8.0),
-            elevation: 2.0,
-            child: ListTile(
-              title: Text(table.id, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(table.isOccupied ? 'Đang chơi' : 'Trống',
-                  style: TextStyle(color: table.isOccupied ? Colors.red : Colors.green)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+    // Lắng nghe AppDataProvider để có danh sách bàn và các hàm quản lý
+    final appDataProvider = context.watch<AppDataProvider>();
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quản lý Bàn Bi-a',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          // --- Phần thêm bàn mới ---
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nút chỉnh sửa ID (hiện tại không cho phép sửa ID bàn đã tồn tại)
-                  // Để đơn giản, chỉ cho phép thêm/xóa.
-                  // IconButton(
-                  //   icon: const Icon(Icons.edit, color: Colors.blueGrey),
-                  //   onPressed: () => _showTableDialog(tableToEdit: table),
-                  // ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _confirmDeleteTable(table),
+                  const Text('Thêm bàn mới:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tên bàn',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final String name = _nameController.text.trim();
+                        if (name.isNotEmpty) {
+                          appDataProvider.addBilliardTable(name);
+                          _nameController.clear();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Đã thêm bàn mới thành công!')),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Vui lòng nhập tên bàn.')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Thêm Bàn'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                        textStyle: const TextStyle(fontSize: 16),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showTableDialog(), // Thêm bàn mới
-        child: const Icon(Icons.add),
-      ),
-      persistentFooterButtons: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              widget.onSave(_tables); // Gọi callback để lưu danh sách bàn
-              Navigator.of(context).pop(); // Quay lại màn hình trước
-            },
-            child: const Text('Lưu Bàn và Quay lại'),
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+
+          // --- Phần danh sách và chỉnh sửa/xóa bàn ---
+          const Text(
+            'Danh sách Bàn:',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: appDataProvider.billiardTables.isEmpty
+                ? const Center(child: Text('Chưa có bàn bi-a nào. Vui lòng thêm bàn!'))
+                : ListView.builder(
+              itemCount: appDataProvider.billiardTables.length,
+              itemBuilder: (context, index) {
+                final table = appDataProvider.billiardTables[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  elevation: 2,
+                  child: ListTile(
+                    title: Text(
+                      table.name,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showEditBilliardTableDialog(context, table, appDataProvider),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            // Xác nhận xóa
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Xác nhận xóa'),
+                                content: Text('Bạn có chắc muốn xóa bàn "${table.name}" không?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+                                  TextButton(
+                                    onPressed: () {
+                                      appDataProvider.deleteBilliardTable(table.id);
+                                      Navigator.of(ctx).pop();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Đã xóa bàn!')),
+                                      );
+                                    },
+                                    child: const Text('Xóa'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  @override
-  void dispose() {
-    // Controller cho dialog được dispose trong .then() của showDialog
-    super.dispose();
+  // --- Dialog Chỉnh sửa bàn bi-a ---
+  Future<void> _showEditBilliardTableDialog(BuildContext context, BilliardTable table, AppDataProvider appDataProvider) async {
+    final TextEditingController editNameController = TextEditingController(text: table.name);
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text('Chỉnh sửa Bàn: ${table.name}'),
+          content: TextField(
+            controller: editNameController,
+            decoration: const InputDecoration(labelText: 'Tên bàn mới'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Hủy'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              child: const Text('Cập nhật'),
+              onPressed: () {
+                final String newName = editNameController.text.trim();
+                if (newName.isNotEmpty) {
+                  appDataProvider.updateBilliardTable(table.id, newName);
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã cập nhật tên bàn!')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng nhập tên bàn mới.')),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }

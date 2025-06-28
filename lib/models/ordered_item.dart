@@ -4,7 +4,16 @@ class OrderedItem {
   int quantity; // Số lượng món đã đặt
 
   OrderedItem({required this.itemId, this.quantity = 1});
-
+  // --- Thêm phương thức copyWith vào đây ---
+  OrderedItem copyWith({
+    String? itemId,
+    int? quantity,
+  }) {
+    return OrderedItem(
+      itemId: itemId ?? this.itemId,
+      quantity: quantity ?? this.quantity,
+    );
+  }
   // Factory constructor để tạo OrderedItem từ Map (JSON)
   factory OrderedItem.fromJson(Map<String, dynamic> json) {
     return OrderedItem(

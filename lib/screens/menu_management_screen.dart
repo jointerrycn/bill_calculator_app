@@ -1,266 +1,250 @@
 // lib/screens/menu_management_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
 import 'package:bill_calculator_app/models/menu_item.dart';
-import 'package:intl/intl.dart'; // Để định dạng tiền tệ
+import 'package:bill_calculator_app/providers/app_data_provider.dart';
+
+
+//Để quản lý thêm, sửa, xóa món ăn.
 
 class MenuManagementScreen extends StatefulWidget {
-  final List<MenuItem> initialMenuItems;
-  final Function(List<MenuItem>) onSave; // Callback khi lưu menu
-
-  const MenuManagementScreen({
-    super.key,
-    required this.initialMenuItems,
-    required this.onSave,
-  });
+  const MenuManagementScreen({super.key});
 
   @override
   State<MenuManagementScreen> createState() => _MenuManagementScreenState();
 }
 
 class _MenuManagementScreenState extends State<MenuManagementScreen> {
-  late List<MenuItem> _menuItems; // Danh sách menu items cục bộ để chỉnh sửa
+  // Controllers cho form thêm món ăn mới
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
 
-  // Helper để định dạng tiền tệ
-  String _formatCurrency(double amount) {
-    final oCcy = NumberFormat("#,##0", "vi_VN");
-    return '${oCcy.format(amount.round())} VNĐ';
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _categoryController.dispose();
+    super.dispose();
   }
 
   @override
-  void initState() {
-    super.initState();
-    // Sao chép danh sách ban đầu để tránh chỉnh sửa trực tiếp danh sách gốc
-    _menuItems = List.from(widget.initialMenuItems);
-  }
+  Widget build(BuildContext context) {
+    // Lắng nghe AppDataProvider để có danh sách món ăn và các hàm quản lý
+    final appDataProvider = context.watch<AppDataProvider>();
 
-  // Hàm hiển thị dialog để thêm/chỉnh sửa món
-  void _showMenuItemDialog({MenuItem? itemToEdit}) {
-    final _idController = TextEditingController(text: itemToEdit?.id ?? '');
-    final _nameController = TextEditingController(text: itemToEdit?.name ?? '');
-    final _priceController = TextEditingController(text: itemToEdit?.price.round().toString() ?? '');
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quản lý Món ăn',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
 
-    // Biến kiểm soát lỗi
-    String? _idError;
-    String? _nameError;
-    String? _priceError;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder( // Sử dụng StatefulBuilder để cập nhật UI trong dialog
-          builder: (context, setInnerState) {
-            return AlertDialog(
-              title: Text(itemToEdit == null ? 'Thêm món mới' : 'Chỉnh sửa món'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: _idController,
-                      decoration: InputDecoration(
-                        labelText: 'ID Món (duy nhất)',
-                        hintText: 'ví dụ: nuoc_ngot',
-                        errorText: _idError,
-                        border: const OutlineInputBorder(),
-                      ),
-                      enabled: itemToEdit == null, // ID chỉ cho phép chỉnh sửa khi thêm mới
-                      onChanged: (value) {
-                        setInnerState(() {
-                          _idError = null; // Xóa lỗi khi người dùng nhập
-                        });
-                      },
+          // --- Phần thêm món mới ---
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Thêm món mới:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tên món',
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: 'Tên món',
-                        hintText: 'ví dụ: Nước Ngọt',
-                        errorText: _nameError,
-                        border: const OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        setInnerState(() {
-                          _nameError = null;
-                        });
-                      },
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _priceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Giá',
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Giá (VNĐ)',
-                        hintText: 'ví dụ: 15000',
-                        errorText: _priceError,
-                        border: const OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        setInnerState(() {
-                          _priceError = null;
-                        });
-                      },
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _categoryController,
+                    decoration: const InputDecoration(
+                      labelText: 'Danh mục',
+                      border: OutlineInputBorder(),
                     ),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('Hủy'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-                ElevatedButton(
-                  child: Text(itemToEdit == null ? 'Thêm' : 'Cập nhật'),
-                  onPressed: () {
-                    // Validate inputs
-                    bool isValid = true;
-                    setInnerState(() {
-                      _idError = null;
-                      _nameError = null;
-                      _priceError = null;
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final String name = _nameController.text.trim();
+                        final double? price = double.tryParse(_priceController.text.trim());
+                        final String category = _categoryController.text.trim();
 
-                      if (_idController.text.trim().isEmpty) {
-                        _idError = 'ID không được để trống';
-                        isValid = false;
-                      } else if (itemToEdit == null && _menuItems.any((item) => item.id == _idController.text.trim())) {
-                        _idError = 'ID đã tồn tại';
-                        isValid = false;
-                      }
-
-                      if (_nameController.text.trim().isEmpty) {
-                        _nameError = 'Tên món không được để trống';
-                        isValid = false;
-                      }
-
-                      if (double.tryParse(_priceController.text) == null || double.parse(_priceController.text) <= 0) {
-                        _priceError = 'Giá phải là số dương';
-                        isValid = false;
-                      }
-                    });
-
-                    if (!isValid) return; // Dừng nếu có lỗi
-
-                    final newMenuItem = MenuItem(
-                      id: _idController.text.trim(),
-                      name: _nameController.text.trim(),
-                      price: double.parse(_priceController.text),
-                    );
-
-                    setState(() { // Cập nhật trạng thái của _MenuManagementScreenState
-                      if (itemToEdit == null) {
-                        _menuItems.add(newMenuItem);
-                      } else {
-                        final index = _menuItems.indexWhere((item) => item.id == itemToEdit.id);
-                        if (index != -1) {
-                          _menuItems[index] = newMenuItem;
+                        if (name.isNotEmpty && price != null && price > 0 && category.isNotEmpty) {
+                          appDataProvider.addMenuItem(name, price, category);
+                          _nameController.clear();
+                          _priceController.clear();
+                          _categoryController.clear();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Đã thêm món ăn thành công!')),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Vui lòng nhập đủ và đúng thông tin món ăn.')),
+                          );
                         }
-                      }
-                    });
-                    Navigator.of(context).pop(); // Đóng dialog
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).then((_) {
-      // Đảm bảo các controller được dispose sau khi dialog đóng
-      //_idController.dispose();
-      //_nameController.dispose();
-      //._priceController.dispose();
-    });
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Thêm Món'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                        textStyle: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // --- Phần danh sách và chỉnh sửa/xóa món ăn ---
+          const Text(
+            'Danh sách Món ăn:',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: appDataProvider.menuItems.isEmpty
+                ? const Center(child: Text('Chưa có món ăn nào. Vui lòng thêm món!'))
+                : ListView.builder(
+              itemCount: appDataProvider.menuItems.length,
+              itemBuilder: (context, index) {
+                final item = appDataProvider.menuItems[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  elevation: 2,
+                  child: ListTile(
+                    title: Text(
+                      item.name,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(
+                      'Giá: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(item.price)} - Danh mục: ${item.category}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showEditMenuItemDialog(context, item, appDataProvider),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            // Xác nhận xóa
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Xác nhận xóa'),
+                                content: Text('Bạn có chắc muốn xóa "${item.name}" khỏi danh sách món ăn không?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
+                                  TextButton(
+                                    onPressed: () {
+                                      appDataProvider.deleteMenuItem(item.id);
+                                      Navigator.of(ctx).pop();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Đã xóa món ăn!')),
+                                      );
+                                    },
+                                    child: const Text('Xóa'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  // Hàm xác nhận xóa món
-  void _confirmDeleteItem(MenuItem itemToDelete) {
-    showDialog(
+  // --- Dialog Chỉnh sửa món ăn ---
+  Future<void> _showEditMenuItemDialog(BuildContext context, MenuItem item, AppDataProvider appDataProvider) async {
+    final TextEditingController editNameController = TextEditingController(text: item.name);
+    final TextEditingController editPriceController = TextEditingController(text: item.price.toString());
+    final TextEditingController editCategoryController = TextEditingController(text: item.category);
+
+    return showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Xác nhận xóa'),
-          content: Text('Bạn có chắc chắn muốn xóa món "${itemToDelete.name}" không?'),
+          title: Text('Chỉnh sửa Món: ${item.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                controller: editNameController,
+                decoration: const InputDecoration(labelText: 'Tên món'),
+              ),
+              TextField(
+                controller: editPriceController,
+                decoration: const InputDecoration(labelText: 'Giá'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: editCategoryController,
+                decoration: const InputDecoration(labelText: 'Danh mục'),
+              ),
+            ],
+          ),
           actions: <Widget>[
             TextButton(
               child: const Text('Hủy'),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Xóa'),
+              child: const Text('Cập nhật'),
               onPressed: () {
-                setState(() {
-                  _menuItems.removeWhere((item) => item.id == itemToDelete.id);
-                });
-                Navigator.of(context).pop();
+                final String newName = editNameController.text.trim();
+                final double? newPrice = double.tryParse(editPriceController.text.trim());
+                final String newCategory = editCategoryController.text.trim();
+
+                if (newName.isNotEmpty && newPrice != null && newPrice > 0 && newCategory.isNotEmpty) {
+                  appDataProvider.updateMenuItem(item.id, newName, newPrice, newCategory);
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã cập nhật món ăn!')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng nhập đủ thông tin hợp lệ.')),
+                  );
+                }
               },
             ),
           ],
         );
       },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Quản lý Menu'),
-        centerTitle: true,
-      ),
-      body: _menuItems.isEmpty
-          ? const Center(
-        child: Text('Chưa có món nào trong menu. Hãy thêm món mới!'),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.all(8.0),
-        itemCount: _menuItems.length,
-        itemBuilder: (context, index) {
-          final item = _menuItems[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 8.0),
-            elevation: 2.0,
-            child: ListTile(
-              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text('ID: ${item.id}'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_formatCurrency(item.price), style: const TextStyle(fontSize: 16, color: Colors.blue)),
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blueGrey),
-                    onPressed: () => _showMenuItemDialog(itemToEdit: item),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _confirmDeleteItem(item),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showMenuItemDialog(), // Thêm món mới
-        child: const Icon(Icons.add),
-      ),
-      persistentFooterButtons: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              widget.onSave(_menuItems); // Gọi callback để lưu menu
-              Navigator.of(context).pop(); // Quay lại màn hình trước
-            },
-            child: const Text('Lưu Menu và Quay lại'),
-          ),
-        ),
-      ],
     );
   }
 }

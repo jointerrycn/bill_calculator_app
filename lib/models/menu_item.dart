@@ -1,26 +1,30 @@
 // lib/models/menu_item.dart
 class MenuItem {
-  final String id; // ID duy nhất cho mỗi món
-  final String name;
-  final double price;
+  final String id;
+  String name;
+  double price;
+  String category;
 
-  MenuItem({required this.id, required this.name, required this.price});
+  MenuItem({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.category,
+  });
 
-  // Factory constructor để tạo MenuItem từ Map (JSON)
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'price': price,
+    'category': category,
+  };
+
   factory MenuItem.fromJson(Map<String, dynamic> json) {
     return MenuItem(
       id: json['id'],
       name: json['name'],
-      price: json['price'].toDouble(), // Đảm bảo chuyển đổi sang double
+      price: json['price'].toDouble(),
+      category: json['category'],
     );
-  }
-
-  // Phương thức để chuyển đổi MenuItem thành Map (JSON)
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'price': price,
-    };
   }
 }
