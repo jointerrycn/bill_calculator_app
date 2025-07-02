@@ -26,8 +26,7 @@ class TableDetailsDialog extends StatelessWidget {
         final updatedTable = appDataProvider.billiardTables.firstWhere((t) => t.id == table.id);
 
         final NumberFormat currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-        final double playTimeHours = updatedTable.displayTotalTime.inMinutes / 60.0;
-        final double hourlyCost = playTimeHours * appDataProvider.hourlyRate;
+        final double hourlyCost = appDataProvider.getHourlyCostForTable(updatedTable.id,  updatedTable.displayTotalTime);
 
         double totalOrderedItemsCost = 0;
         for (var orderedItem in updatedTable.orderedItems) {

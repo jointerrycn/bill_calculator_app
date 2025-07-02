@@ -33,17 +33,21 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  intl: ^0.19.0
+  intl: ^0.20.2
   collection: ^1.18.0
-  fl_chart: ^0.64.0
+  fl_chart: ^1.0.0
   path_provider: ^2.1.3
   uuid: ^4.4.0
-  file_picker: ^8.0.0
-  share_plus: ^9.0.0
+  file_picker: ^10.2.0
+  share_plus: ^11.0.0
   shared_preferences: ^2.2.0
   cupertino_icons: ^1.0.6
   provider: ^6.0.5
-
+  pdf: ^3.10.8 # Thư viện để tạo file PDF
+  printing: ^5.12.0 # Thư viện để in và chia sẻ PDF
+  cached_network_image: ^3.3.1
+  device_preview: ^1.1.0
+  flutter_launcher_icons: ^0.14.3
 
 
 
@@ -56,7 +60,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -85,10 +89,10 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
-  # fonts:
+  #fonts:
   #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
+  assets:
+    - assets/fonts/
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic
   #   - family: Trajan Pro
@@ -99,3 +103,22 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+# ... (các phần khác của pubspec.yaml)
+
+flutter_launcher_icons:
+  android: true                 # Bật tạo icon cho Android
+  ios: false                    # Tắt tạo icon cho iOS nếu bạn chỉ muốn Android
+  image_path: "assets/app_icon_source.png" # ĐƯỜNG DẪN ĐẾN FILE ICON CỦA BẠN (Đảm bảo đúng!)
+  min_sdk_android: 21           # Phiên bản SDK Android tối thiểu mà ứng dụng của bạn hỗ trợ
+  # (Kiểm tra android/app/build.gradle -> defaultConfig -> minSdkVersion)
+
+  # Cấu hình cho Adaptive Icons (Rất khuyến khích cho Android 8.0 Oreo trở lên)
+  # Bạn có 2 lựa chọn:
+  # Lựa chọn A: Chỉ định màu nền cho adaptive icon
+  adaptive_icon_background: "#4CAF50" # Thay bằng mã màu bạn muốn (ví dụ: màu xanh của bàn bi-a)
+  # adaptive_icon_background: "assets/background_image.png" # Hoặc đường dẫn đến file ảnh nền nếu bạn có
+
+  # Lựa chọn B: Chỉ định file ảnh cho phần foreground của adaptive icon (nếu ảnh nguồn của bạn trong suốt)
+  # adaptive_icon_foreground: "assets/app_icon_foreground.png"
+  # (Nếu image_path đã là icon hoàn chỉnh, bạn có thể không cần foreground riêng)flutter clean
+  #flutter build apk # hoặc flutter build appbundle

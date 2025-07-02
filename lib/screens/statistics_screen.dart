@@ -31,122 +31,133 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Lắng nghe AppDataProvider để lấy dữ liệu transactions và menuItems
     final appDataProvider = context.watch<AppDataProvider>();
     final List<Transaction> allTransactions = appDataProvider.transactions;
     final List<MenuItem> allMenuItems = appDataProvider.menuItems;
 
-    // Lọc giao dịch dựa trên phạm vi thời gian được chọn
     List<Transaction> filteredTransactions = _filterTransactions(allTransactions);
 
-    // Tính toán tổng doanh thu và thống kê món ăn từ các giao dịch đã lọc
     final double totalRevenue = _calculateTotalRevenue(filteredTransactions);
     final Map<String, int> topMenuItems = _getTopMenuItems(filteredTransactions, allMenuItems);
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Tiêu đề
-          const Text(
-            'Thống kê Doanh thu',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-
-          // Lựa chọn phạm vi thời gian
-          _buildTimeRangeSelection(context),
-          const SizedBox(height: 16),
-
-          // Hiển thị tổng doanh thu
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Tổng doanh thu:',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(totalRevenue),
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green),
-                  ),
-                ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tiêu đề
+                    const Text(
+                      'Thống kê Doanh thu',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
 
-          // Biểu đồ doanh thu theo ngày/tháng (chỉ hiện khi có đủ dữ liệu)
-          if (_selectedTimeRange != 'Tổng') ...[
-            const Text(
-              'Biểu đồ doanh thu:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _buildBarChart(filteredTransactions, _selectedTimeRange),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+                    // Lựa chọn phạm vi thời gian
+                    _buildTimeRangeSelection(context),
+                    const SizedBox(height: 16),
 
-
-          // Thống kê món ăn bán chạy
-          const Text(
-            'Món ăn bán chạy:',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: topMenuItems.isEmpty
-                    ? const Center(child: Text('Chưa có món ăn nào được bán trong khoảng thời gian này.'))
-                    : ListView.builder(
-                  itemCount: topMenuItems.length,
-                  itemBuilder: (context, index) {
-                    final entry = topMenuItems.entries.elementAt(index);
-                    // Lấy tên món ăn từ ID
-                    final MenuItem? menuItem = allMenuItems.firstWhereOrNull((item) => item.id == entry.key);
-                    final String itemName = menuItem?.name ?? 'Món không rõ (${entry.key})';
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${index + 1}. $itemName',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          Text(
-                            '${entry.value} lượt',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                    // Hiển thị tổng doanh thu
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Tổng doanh thu:',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(totalRevenue),
+                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Biểu đồ doanh thu theo ngày/tháng (chỉ hiện khi có đủ dữ liệu)
+                    if (_selectedTimeRange != 'Tổng') ...[
+                      const Text(
+                        'Biểu đồ doanh thu:',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 220,
+                        child: Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: _buildBarChart(filteredTransactions, _selectedTimeRange),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Thống kê món ăn bán chạy
+                    const Text(
+                      'Món ăn bán chạy:',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 220,
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: topMenuItems.isEmpty
+                              ? const Center(child: Text('Chưa có món ăn nào được bán trong khoảng thời gian này.'))
+                              : ListView.builder(
+                                  itemCount: topMenuItems.length,
+                                  itemBuilder: (context, index) {
+                                    final entry = topMenuItems.entries.elementAt(index);
+                                    // Lấy tên món ăn từ ID
+                                    final MenuItem? menuItem = allMenuItems.firstWhereOrNull((item) => item.id == entry.key);
+                                    final String itemName = menuItem?.name ?? 'Món không rõ (${entry.key})';
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            '${index + 1}. $itemName',
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                          Text(
+                                            '${entry.value} lượt',
+                                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -333,7 +344,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     } else {
       return const Center(child: Text('Chọn phạm vi thời gian (Ngày/Tuần/Tháng) để xem biểu đồ.'));
     }
-
 
     for (var t in transactions) {
       String key;

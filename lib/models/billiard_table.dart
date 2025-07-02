@@ -1,19 +1,24 @@
 // lib/models/billiard_table.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:bill_calculator_app/models/ordered_item.dart';
 
 class BilliardTable with ChangeNotifier {
   final String id;
-  String name; // <--- THÊM DÒNG NÀY
+  String name;
+  double price; // Giá
   bool isOccupied;
   DateTime? startTime;
   DateTime? endTime;
   Duration totalPlayedTime; // Thời gian tích lũy khi dừng bàn
   List<OrderedItem> orderedItems;
+  Timer? _timer; // Timer để cập nhật thời gian chơi
 
   BilliardTable({
     required this.id,
-    required this.name, // <--- THÊM DÒNG NÀY (hoặc đảm bảo nó có)
+    required this.name,
+    required this.price,
     this.isOccupied = false,
     this.startTime,
     this.endTime,
@@ -55,9 +60,10 @@ class BilliardTable with ChangeNotifier {
 
   // Factory constructor để tạo từ JSON
   factory BilliardTable.fromJson(Map<String, dynamic> json) {
-    return BilliardTable(
+    final table = BilliardTable(
       id: json['id'],
       name: json['name'],
+      price: json['price']?.toDouble() ?? 0.0,
       isOccupied: json['isOccupied'] ?? false,
       startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
       totalPlayedTime: Duration(microseconds: json['totalPlayedTime'] ?? 0),
@@ -66,6 +72,11 @@ class BilliardTable with ChangeNotifier {
           .toList() ??
           [],
     );
+    // Nếu bàn đang bận khi tải từ JSON, hãy khởi động lại timer
+    if (table.isOccupied) {
+      table._startTimer();
+    }
+    return table;
   }
 
   // Chuyển đổi thành JSON
@@ -73,6 +84,7 @@ class BilliardTable with ChangeNotifier {
     return {
       'id': id,
       'name': name,
+      'price': price,
       'isOccupied': isOccupied,
       'startTime': startTime?.toIso8601String(),
       'totalPlayedTime': totalPlayedTime.inMicroseconds,
@@ -99,15 +111,21 @@ class BilliardTable with ChangeNotifier {
       startTime = DateTime.now();
       endTime = null;
       orderedItems.clear();
-      debugPrint('Bàn $id bắt đầu lúc: $startTime');
+      _startTimer(); // Bắt đầu timer
+      notifyListeners(); // Thông báo thay đổi trạng thái
     }
   }
 
   void stop() {
-    if (isOccupied) {
+    if (isOccupied && startTime != null) {
+      // Cộng dồn thời gian của phiên hiện tại vào totalPlayedTime
+      totalPlayedTime += DateTime.now().difference(startTime!);
       isOccupied = false;
+      startTime = null; // Đặt lại startTime
       endTime = DateTime.now();
-      debugPrint('Bàn $id dừng lúc: $endTime, tổng thời gian chơi: $displayTotalTime');
+      // Để orderedItems và totalPlayedTime cho đến khi thanh toán xong
+      // hoặc resetTable được gọi sau khi hóa đơn được in.
+      notifyListeners();
     }
   }
 
@@ -115,8 +133,27 @@ class BilliardTable with ChangeNotifier {
     isOccupied = false;
     startTime = null;
     endTime = null;
+    totalPlayedTime = Duration.zero;
     orderedItems.clear();
-    debugPrint('Bàn $id đã reset.');
+    notifyListeners();
+  }
+// Bắt đầu timer để cập nhật UI mỗi giây
+  void _startTimer() {
+    _timer?.cancel(); // Hủy timer cũ nếu có
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // Chỉ notifyListeners nếu bàn đang bận để tránh rebuild không cần thiết
+      if (isOccupied) {
+        notifyListeners(); // <-- ĐÂY LÀ DÒNG QUAN TRỌNG NHẤT CHO CẬP NHẬT THỜI GIAN THỰC
+      } else {
+        _stopTimer(); // Nếu không bận nữa thì dừng timer
+      }
+    });
+  }
+
+  // Dừng timer
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
   }
 
  /* Duration get displayTotalTime {
