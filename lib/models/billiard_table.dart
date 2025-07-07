@@ -47,13 +47,13 @@ class BilliardTable with ChangeNotifier {
   }
 
   // Phương thức để thêm món ăn
-  void addOrderedItem(String itemId, int quantity) {
+  void addOrderedItem(String itemId, int quantity, String name, double price) {
     // Kiểm tra xem món đã tồn tại chưa
     final existingItemIndex = orderedItems.indexWhere((item) => item.itemId == itemId);
     if (existingItemIndex != -1) {
       orderedItems[existingItemIndex] = orderedItems[existingItemIndex].copyWith(quantity: orderedItems[existingItemIndex].quantity + quantity);
     } else {
-      orderedItems.add(OrderedItem(itemId: itemId, quantity: quantity));
+      orderedItems.add(OrderedItem(itemId: itemId, quantity: quantity,name: name, price: price));
     }
     notifyListeners(); // <-- Thông báo khi có món mới
   }
@@ -92,7 +92,7 @@ class BilliardTable with ChangeNotifier {
     };
   }
 
-  void addOrUpdateOrderedItem(String itemId, int quantityChange) {
+  void addOrUpdateOrderedItem(String itemId, int quantityChange, String name, double price) {
     final existingItemIndex = orderedItems.indexWhere((item) => item.itemId == itemId);
     if (existingItemIndex != -1) {
       orderedItems[existingItemIndex].quantity += quantityChange;
@@ -100,7 +100,7 @@ class BilliardTable with ChangeNotifier {
         orderedItems.removeAt(existingItemIndex);
       }
     } else if (quantityChange > 0) {
-      orderedItems.add(OrderedItem(itemId: itemId, quantity: quantityChange));
+      orderedItems.add(OrderedItem(itemId: itemId, quantity: quantityChange, name: name, price: price));
     }
     debugPrint('Bàn $id: Cập nhật món $itemId, số lượng $quantityChange. Danh sách: ${orderedItems.map((e) => '${e.itemId}:${e.quantity}').join(', ')}');
   }

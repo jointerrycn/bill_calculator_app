@@ -48,7 +48,7 @@ class TableDetailsDialog extends StatelessWidget {
                 if (updatedTable.startTime != null)
                   Text('Bắt đầu: ${DateFormat('HH:mm').format(updatedTable.startTime!)}'),
                 Text('Thời gian chơi: ${updatedTable.displayTotalTime.inHours}h ${updatedTable.displayTotalTime.inMinutes % 60}m'),
-                Text('Tiền bàn: ${currencyFormat.format(hourlyCost)}'),
+                Text('Tiền giờ: ${currencyFormat.format(hourlyCost)}'),
                 const Divider(),
                 const Text('Đồ ăn/uống đã gọi:', style: TextStyle(fontWeight: FontWeight.bold)),
                 if (updatedTable.orderedItems.isEmpty)
@@ -143,6 +143,7 @@ class TableDetailsDialog extends StatelessWidget {
   Future<void> _showAddOrderedItemDialog(BuildContext context, BilliardTable table, AppDataProvider appDataProvider) async {
     MenuItem? selectedMenuItem;
     int quantity = 1;
+
 
     return showDialog<void>(
       context: context,

@@ -6,6 +6,8 @@ class Invoice {
   final String id;
   final String tableName; // Tên bàn khi giao dịch xảy ra
   final DateTime billDateTime; // Thời gian thanh toán
+  final DateTime startTime; // Thời gian bắt đầu chươi
+  final DateTime endTime; // Thời gian nghỉ
   final Duration playedDuration; // Tổng thời gian chơi của bàn
   final double hourlyRateAtTimeOfBill; // Giá giờ của bàn tại thời điểm thanh toán
   final double totalTableCost; // Tổng tiền bàn
@@ -18,6 +20,8 @@ class Invoice {
     String? id,
     required this.tableName,
     required this.billDateTime,
+    required this.startTime,
+    required  this.endTime,
     required this.playedDuration,
     required this.hourlyRateAtTimeOfBill,
     required this.totalTableCost,
@@ -33,6 +37,8 @@ class Invoice {
       'id': id,
       'tableName': tableName,
       'billDateTime': billDateTime.toIso8601String(),
+      'startTime': billDateTime.toIso8601String(),
+      'endTime': billDateTime.toIso8601String(),
       'playedDuration': playedDuration.inMicroseconds,
       'hourlyRateAtTimeOfBill': hourlyRateAtTimeOfBill,
       'totalTableCost': totalTableCost,
@@ -50,6 +56,8 @@ class Invoice {
       tableName: json['tableName'],
       billDateTime: DateTime.parse(json['billDateTime']),
       playedDuration: Duration(microseconds: json['playedDuration']),
+      startTime: DateTime.parse(json['startTime']),
+      endTime: DateTime.parse(json['endTime']),
       hourlyRateAtTimeOfBill: json['hourlyRateAtTimeOfBill'],
       totalTableCost: json['totalTableCost'],
       orderedItems: (json['orderedItems'] as List)
@@ -60,4 +68,22 @@ class Invoice {
       finalAmount: json['finalAmount'],
     );
   }
+
+
+  static Invoice createFakeInvoice() {
+    return Invoice(
+      tableName: "Bàn Test",
+      billDateTime: DateTime.now(),
+      startTime: DateTime.now().subtract(const Duration(minutes: 45)),
+      endTime: DateTime.now(),
+      playedDuration: const Duration(minutes: 45),
+      hourlyRateAtTimeOfBill: 60000,
+      totalTableCost: 45000,
+      orderedItems: [],
+      totalOrderedItemsCost: 0,
+      discountAmount: 0,
+      finalAmount: 45000,
+    );
+  }
 }
+

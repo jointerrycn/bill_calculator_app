@@ -1,5 +1,6 @@
 // lib/screens/table_management_screen.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'package:bill_calculator_app/models/billiard_table.dart';
@@ -130,7 +131,9 @@ class _TableManagementScreenState extends State<TableManagementScreen> {
                                       table.name,
                                       style: const TextStyle(fontWeight: FontWeight.w500),
                                     ),
-                                    subtitle: Text('Giá: ${table.price.toStringAsFixed(0)} VNĐ/giờ'),
+                                    subtitle: Text(
+                                      'Giá: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(table.price)}',
+                                    ),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [

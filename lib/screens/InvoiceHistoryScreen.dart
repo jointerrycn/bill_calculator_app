@@ -7,6 +7,9 @@ import 'package:bill_calculator_app/models/invoice.dart';
 import 'package:bill_calculator_app/models/menu_item.dart';
 import 'package:collection/collection.dart';
 
+// Import PrintService
+import 'package:bill_calculator_app/services/print_service.dart'; // Đảm bảo đường dẫn đúng
+
 class InvoiceHistoryScreen extends StatefulWidget {
   const InvoiceHistoryScreen({super.key});
 
@@ -109,6 +112,77 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     );
   }
 
+  // =========================================================================
+  // BẮT ĐẦU: Các hàm mới cho chức năng IN HÓA ĐƠN
+  // =========================================================================
+
+  // Hàm xử lý việc in hóa đơn (trong _InvoiceHistoryScreenState)
+  // Hàm này sẽ gọi PrintService
+  Future<void> _handlePrintInvoice(BuildContext context, Invoice invoice, AppDataProvider appDataProvider) async {
+    // Hiển thị dialog loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (_) => WillPopScope( // Ngăn không cho đóng dialog bằng nút Back
+        onWillPop: () async => false,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text(
+                  'Đang tạo hóa đơn...',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Gọi PrintService để tạo bytes của PDF
+      final pdfBytes = await PrintService.generateInvoicePdfBytes(
+        invoice: invoice,
+        appDataProvider: appDataProvider,
+      );
+
+      // Đóng dialog loading
+      Navigator.of(context, rootNavigator: true).pop();
+
+      // Gọi PrintService để hiển thị giao diện in
+      await PrintService.printPdf(context, pdfBytes);
+
+      // Hiển thị SnackBar thành công
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hóa đơn đã được gửi đến máy in.')),
+      );
+    } catch (e) {
+      // Đóng dialog loading nếu có lỗi và nó vẫn đang mở
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      // Hiển thị SnackBar lỗi (hoặc AlertDialog chi tiết hơn)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi chuẩn bị in hóa đơn: $e')),
+      );
+      print('Lỗi in: $e'); // In lỗi ra console để debug
+    }
+  }
+
+  // =========================================================================
+  // KẾT THÚC: Các hàm mới cho chức năng IN HÓA ĐƠN
+  // =========================================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -144,9 +218,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         builder: (context, appDataProvider, child) {
           // Lọc danh sách hóa đơn theo ngày đã chọn
           final List<Invoice> filteredInvoices = appDataProvider.invoices.where((invoice) {
+            // Cập nhật logic: Nếu _selectedDate là null, hiển thị TẤT CẢ hóa đơn.
+            // Nếu bạn muốn mặc định là "hôm nay", hãy thay đổi lại logic này.
             if (_selectedDate == null) {
-              _selectedDate = DateTime.now();
-              return true; // Không có ngày được chọn, hiển thị tất cả
+              return true; // Hiển thị TẤT CẢ hóa đơn khi không có bộ lọc ngày
             }
             // So sánh chỉ ngày, tháng, năm
             return invoice.billDateTime.year == _selectedDate!.year &&
@@ -160,7 +235,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   _selectedDate == null
-                      ? 'Chưa có hóa đơn nào được lưu.'
+                      ? 'Chưa có hóa đơn nào được lưu.' // Nếu không có bộ lọc ngày và danh sách trống
                       : 'Không có hóa đơn nào vào ngày ${DateFormat('dd/MM/yyyy').format(_selectedDate!)}.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 16, color: Colors.grey),
@@ -192,15 +267,24 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Nút xóa hóa đơn
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _confirmDeleteInvoice(context, invoice, appDataProvider),
                         tooltip: 'Xóa hóa đơn',
                       ),
-                      const Icon(Icons.arrow_forward_ios),
+                      // Nút xem chi tiết (hoặc chuyển đến màn hình chi tiết)
+                      IconButton(
+                        icon: const Icon(Icons.info_outline, color: Colors.blue), // Thay đổi icon để rõ hơn
+                        onPressed: () {
+                          _showInvoiceDetailsDialog(context, invoice, appDataProvider);
+                        },
+                        tooltip: 'Xem chi tiết',
+                      ),
                     ],
                   ),
                   onTap: () {
+                    // Bạn có thể giữ onTap để click vào ListTile cũng mở dialog
                     _showInvoiceDetailsDialog(context, invoice, appDataProvider);
                   },
                 ),
@@ -212,7 +296,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     );
   }
 
-  // Dialog hiển thị chi tiết hóa đơn (giữ nguyên)
+  // Dialog hiển thị chi tiết hóa đơn (ĐÃ CẬP NHẬT để thêm nút in)
   void _showInvoiceDetailsDialog(
       BuildContext context, Invoice invoice, AppDataProvider appDataProvider) {
     final NumberFormat currencyFormat =
@@ -228,11 +312,13 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Thời gian: ${DateFormat('HH:mm:ss dd/MM/yyyy').format(invoice.billDateTime)}'),
+                Text('Thời gian hóa đơn: ${DateFormat('HH:mm:ss dd/MM/yyyy').format(invoice.billDateTime)}'),
                 const SizedBox(height: 8),
-                Text('Thời gian chơi: ${invoice.playedDuration.inHours}h ${invoice.playedDuration.inMinutes % 60}m ${invoice.playedDuration.inSeconds % 60}s'),
+                Text('Bắt đầu: ${DateFormat('HH:mm:ss dd/MM/yyyy').format(invoice.startTime)}'),
+                Text('Kết thúc: ${DateFormat('HH:mm:ss dd/MM/yyyy').format(invoice.endTime)}'),
+                Text('Thời gian chơi: ${invoice.playedDuration.inHours}h ${invoice.playedDuration.inMinutes % 60}m'),
                 Text('Giá giờ: ${currencyFormat.format(invoice.hourlyRateAtTimeOfBill)}/giờ'),
-                Text('Tiền bàn: ${currencyFormat.format(invoice.totalTableCost)}'),
+                Text('Tiền giờ: ${currencyFormat.format(invoice.totalTableCost)}'),
                 const Divider(),
                 const Text('Món đã gọi:', style: TextStyle(fontWeight: FontWeight.bold)),
                 if (invoice.orderedItems.isEmpty)
@@ -248,7 +334,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 const Divider(),
                 Text('Giảm giá: ${currencyFormat.format(invoice.discountAmount)}', style: const TextStyle(color: Colors.red)),
                 Text(
-                  'Tổng cộng: ${currencyFormat.format(invoice.finalAmount)}',
+                  'Tổng cộng: ${currencyFormat.format(invoice.totalTableCost+invoice.totalOrderedItemsCost-invoice.discountAmount)}',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue),
                 ),
@@ -256,6 +342,18 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
             ),
           ),
           actions: [
+            // NÚT IN HÓA ĐƠN MỚI
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(ctx).pop(); // Đóng dialog chi tiết hóa đơn
+                _handlePrintInvoice(context, invoice, appDataProvider); // Gọi hàm xử lý in
+              },
+              icon: const Icon(Icons.print, color: Colors.white),
+              label: const Text('In HĐ', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple, // Màu nổi bật
+              ),
+            ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('Đóng'),

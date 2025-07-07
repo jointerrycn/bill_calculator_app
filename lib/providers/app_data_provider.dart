@@ -2,15 +2,17 @@
 import 'dart:convert';
 
 import 'package:bill_calculator_app/helper/extensions.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io'; // Required for File and Directory
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
-
+import 'dart:typed_data';
 // Import các model
 import '../models/billiard_table.dart';
 import '../models/custom_paper_size.dart';
@@ -66,6 +68,11 @@ class AppDataProvider extends ChangeNotifier {
   AppDataProvider() {
     // Khởi tạo và tải dữ liệu ngay khi provider được tạo
     _loadData();
+  }
+// THÊM PHƯƠNG THỨC PUBLIC NÀY VÀO ĐÂY
+  Future<void> reloadData() async {
+    debugPrint('AppDataProvider: Đang tải lại dữ liệu...');
+    await _loadData(); // Gọi lại hàm tải dữ liệu private
   }
 
   // Hàm tải dữ liệu ban đầu
@@ -143,7 +150,6 @@ class AppDataProvider extends ChangeNotifier {
     await _dataService.saveBilliardTables(_billiardTables);
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setString('shopName', _shopName); // <-- LƯU TÊN QUÁN
     await prefs.setString('shopAddress', _shopAddress); // <-- LƯU ĐỊA CHỈ
     await prefs.setString('shopName', _shopName); // <-- LƯU TÊN QUÁN
     await prefs.setString('shopPhone', _shopPhone); // <-- LƯU SĐT
@@ -354,36 +360,71 @@ class AppDataProvider extends ChangeNotifier {
   void updateTableOrderedItems(BilliardTable table, MenuItem item, int quantityChange) {
     // Cần tìm đúng đối tượng bàn trong danh sách _billiardTables để cập nhật
     final tableToUpdate = _billiardTables.firstWhere((t) => t.id == table.id);
-    tableToUpdate.addOrUpdateOrderedItem(item.id, quantityChange);
+    tableToUpdate.addOrUpdateOrderedItem(item.id, quantityChange,item.name,item.price);
     _saveAllData();
     notifyListeners(); // Thông báo thay đổi
   }
 
   // --- SAO LƯU VÀ PHỤC HỒI DỮ LIỆU ---
   // Các hàm này bây giờ nhận BuildContext để hiển thị SnackBar
-  Future<void> backupData(BuildContext context) async {
-    final backupJsonString = await _dataService.backupAllDataToJsonString();
-    if (backupJsonString != null) {
-      final fileName = 'bill_calculator_backup_${DateTime.now().toIso8601String().replaceAll(':', '-')}.json';
-      try {
-        final Directory appDocDir = await getApplicationDocumentsDirectory();
-        final String appDocPath = appDocDir.path;
-        final File tempFile = File('$appDocPath/$fileName');
-        await tempFile.writeAsString(backupJsonString);
 
-        await Share.shareXFiles([XFile(tempFile.path)], text: 'Dữ liệu sao lưu từ ứng dụng Bill Calculator');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã sao lưu dữ liệu thành công!')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi sao lưu dữ liệu: $e')),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể sao lưu dữ liệu. Có lỗi xảy ra.')),
+  Future<void> backupData(BuildContext context) async {
+    try {
+      // 1. Lấy tất cả dữ liệu cần sao lưu
+      final Map<String, dynamic> dataToBackup = {
+        'shopName': _shopName,
+        'shopAddress': _shopAddress,
+        'shopPhone': _shopPhone,
+        'bankName': _bankName,
+        'bankAccountNumber': _bankAccountNumber,
+        'bankAccountHolder': _bankAccountHolder,
+        'qrImageUrl': _qrImageUrl,
+        'selectedPaperSize': _selectedPaperSize,
+        'hourlyRate': _hourlyRate,
+        'customPaperSizes': _customPaperSizes.map((s) => s.toJson()).toList(),
+        'menuItems': _menuItems.map((item) => item.toJson()).toList(),
+        'transactions': _transactions.map((t) => t.toJson()).toList(),
+        'billiardTables': _billiardTables.map((b) => b.toJson()).toList(),
+        'invoices': _invoices.map((i) => i.toJson()).toList(),
+      };
+
+      final String jsonString = jsonEncode(dataToBackup);
+
+      // 2. Tạo tên file
+      final String timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final String fileName = 'Bi-a_Smart_Backup_$timestamp.json';
+
+      // 3. Ghi file vào thư mục cache của ứng dụng
+      // Đây là thư mục riêng tư của ứng dụng, không cần quyền đặc biệt
+      final Directory tempDir = await getTemporaryDirectory();
+      final File file = File('${tempDir.path}/$fileName');
+      await file.writeAsString(jsonString);
+
+      // 4. Sử dụng share_plus để chia sẻ file
+      // Điều này sẽ mở hộp thoại chia sẻ của hệ thống.
+      // Người dùng có thể chọn các ứng dụng khác nhau
+      // để lưu file (ví dụ: "Lưu vào Tệp", Google Drive, Zalo, Email, v.v.)
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Dữ liệu sao lưu ứng dụng Bi-a Smart',
+        subject: 'Sao lưu dữ liệu ứng dụng Bi-a Smart', // Tiêu đề cho email/tin nhắn
       );
+
+      // Hiển thị thông báo sau khi hộp thoại chia sẻ được mở
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã tạo file sao lưu. Vui lòng chọn ứng dụng để lưu hoặc chia sẻ.')),
+      );
+
+      // Tùy chọn: Bạn có thể xóa file tạm thời nếu muốn
+      // file.delete(); // Bỏ comment nếu muốn xóa file sau khi chia sẻ
+
+    } catch (e, stacktrace) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi sao lưu dữ liệu: $e'),
+          backgroundColor: Colors.orange,),
+      );
+      debugPrint('Lỗi chi tiết khi sao lưu: $e');
+      debugPrint('Stacktrace: $stacktrace');
     }
   }
 
@@ -406,17 +447,20 @@ class AppDataProvider extends ChangeNotifier {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Phục hồi dữ liệu thất bại. File không hợp lệ?')),
+            const SnackBar(content: Text('Phục hồi dữ liệu thất bại. File không hợp lệ?'),
+              backgroundColor: Colors.orange,),
           );
         }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi đọc file phục hồi: $e')),
+          SnackBar(content: Text('Lỗi khi đọc file phục hồi: $e'),
+            backgroundColor: Colors.orange,),
         );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã hủy chọn file phục hồi.')),
+        const SnackBar(content: Text('Đã hủy chọn file phục hồi.'),
+          backgroundColor: Colors.orange,),
       );
     }
   }

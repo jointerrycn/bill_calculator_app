@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Để định dạng tiền tệ
+import 'package:intl/intl.dart';
 import '../providers/app_data_provider.dart';
-import '../models/custom_paper_size.dart'; // Đảm bảo import CustomPaperSize
+import '../models/custom_paper_size.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,30 +13,20 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  // Controllers cho thông tin quán
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
+  // ... (Giữ nguyên tất cả các TextEditingController và _standardPaperSizes) ...
   final TextEditingController _shopNameController = TextEditingController();
   final TextEditingController _shopAddressController = TextEditingController();
   final TextEditingController _shopPhoneController = TextEditingController();
-
-  //Bank
   final _bankNameController = TextEditingController();
   final _bankAccountNumberController = TextEditingController();
   final _bankAccountHolderController = TextEditingController();
   final _qrImageUrlController = TextEditingController();
-
-  // Controller cho giá tiền theo giờ chung (nếu bạn muốn có một mức giá chung)
   final TextEditingController _hourlyRateController = TextEditingController();
+  final TextEditingController _customPaperNameController = TextEditingController();
+  final TextEditingController _customPaperWidthController = TextEditingController();
+  final TextEditingController _customPaperHeightController = TextEditingController();
 
-  // Controllers cho giấy tùy chỉnh
-  final TextEditingController _customPaperNameController =
-      TextEditingController();
-  final TextEditingController _customPaperWidthController =
-      TextEditingController();
-  final TextEditingController _customPaperHeightController =
-      TextEditingController();
-
-  // Danh sách các tùy chọn kích thước giấy chuẩn
   static const Map<String, String> _standardPaperSizes = {
     'roll80': 'Giấy in nhiệt 80mm',
     'roll57': 'Giấy in nhiệt 57mm',
@@ -45,24 +35,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'letter': 'Letter (216x279mm)',
   };
 
+
   @override
   void initState() {
     super.initState();
-    // Khởi tạo controllers với giá trị ban đầu từ AppDataProvider (listen: false)
-    // để tránh kích hoạt rebuild khi khởi tạo.
-    final appDataProvider = Provider.of<AppDataProvider>(
-      context,
-      listen: false,
-    );
-    _shopNameController.text = appDataProvider.shopName;
-    _shopAddressController.text = appDataProvider.shopAddress;
-    _shopPhoneController.text = appDataProvider.shopPhone;
-    _bankNameController.text = appDataProvider.bankName; // Khởi tạo
-    _bankAccountNumberController.text =
-        appDataProvider.bankAccountNumber; // Khởi tạo
-    _bankAccountHolderController.text =
-        appDataProvider.bankAccountHolder; // Khởi tạo
-    _qrImageUrlController.text = appDataProvider.qrImageUrl; // Khởi tạo
+    WidgetsBinding.instance.addObserver(this);
+    debugPrint('SettingsScreen initState: WidgetsBindingObserver added.');
+
+    _loadInitialDataIntoControllers();
 
     _shopNameController.addListener(_saveSettingsDelayed);
     _shopAddressController.addListener(_saveSettingsDelayed);
@@ -71,11 +51,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _bankAccountNumberController.addListener(_saveSettingsDelayed);
     _bankAccountHolderController.addListener(_saveSettingsDelayed);
     _qrImageUrlController.addListener(_saveSettingsDelayed);
-    // _hourlyRateController.text = appDataProvider.hourlyRate.toString(); // Chỉ khởi tạo nếu bạn vẫn dùng giá chung
+    _hourlyRateController.addListener(_saveSettingsDelayed);
   }
 
-  // Hàm lưu cài đặt
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    debugPrint('SettingsScreen dispose: WidgetsBindingObserver removed.');
+
+    _shopNameController.removeListener(_saveSettingsDelayed);
+    _shopAddressController.removeListener(_saveSettingsDelayed);
+    _shopPhoneController.removeListener(_saveSettingsDelayed);
+    _bankNameController.removeListener(_saveSettingsDelayed);
+    _bankAccountNumberController.removeListener(_saveSettingsDelayed);
+    _bankAccountHolderController.removeListener(_saveSettingsDelayed);
+    _qrImageUrlController.removeListener(_saveSettingsDelayed);
+    _hourlyRateController.removeListener(_saveSettingsDelayed);
+
+    _shopNameController.dispose();
+    _shopAddressController.dispose();
+    _shopPhoneController.dispose();
+    _hourlyRateController.dispose();
+    _customPaperNameController.dispose();
+    _customPaperWidthController.dispose();
+    _customPaperHeightController.dispose();
+    _bankNameController.dispose();
+    _bankAccountNumberController.dispose();
+    _bankAccountHolderController.dispose();
+    _qrImageUrlController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    debugPrint('AppLifecycleState in SettingsScreen changed to: $state');
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('SettingsScreen: Ứng dụng đã quay lại từ nền (resumed).');
+
+      // CHỈNH SỬA Ở ĐÂY:
+      // Chúng ta sẽ đợi AppDataProvider tải xong dữ liệu trước khi cập nhật controllers
+      // để tránh việc cập nhật controllers với dữ liệu cũ hoặc khi AppDataProvider đang ở trạng thái loading.
+      final appDataProvider = Provider.of<AppDataProvider>(context, listen: false);
+      appDataProvider.reloadData().then((_) {
+        // Callback này sẽ chạy sau khi reloadData() hoàn tất
+        if (mounted) { // Đảm bảo widget vẫn còn trên cây
+          setState(() {
+            debugPrint('SettingsScreen setState() triggered AFTER reloadData completes.');
+            _loadInitialDataIntoControllers(); // Tải lại dữ liệu vào controllers sau khi dữ liệu mới đã có
+          });
+        }
+      });
+    }
+  }
+
+  void _loadInitialDataIntoControllers() {
+    final appDataProvider = Provider.of<AppDataProvider>(
+      context,
+      listen: false,
+    );
+    // Dùng mounted để tránh lỗi nếu widget đã bị dispose trong quá trình async
+    if (!mounted) return;
+
+    _shopNameController.text = appDataProvider.shopName;
+    _shopAddressController.text = appDataProvider.shopAddress;
+    _shopPhoneController.text = appDataProvider.shopPhone;
+    _bankNameController.text = appDataProvider.bankName;
+    _bankAccountNumberController.text = appDataProvider.bankAccountNumber;
+    _bankAccountHolderController.text = appDataProvider.bankAccountHolder;
+    _qrImageUrlController.text = appDataProvider.qrImageUrl;
+    _hourlyRateController.text = appDataProvider.hourlyRate.toStringAsFixed(0);
+    debugPrint('SettingsScreen: Initial data loaded into controllers.');
+  }
+
   void _saveSettings() {
+    debugPrint('SettingsScreen: _saveSettings() called.');
     final appData = context.read<AppDataProvider>();
     appData.updateShopInfo2(
       _shopNameController.text,
@@ -86,37 +136,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _bankAccountHolderController.text,
       _qrImageUrlController.text,
     );
+    final newRate = double.tryParse(_hourlyRateController.text) ?? 0.0;
+    if (newRate > 0 && newRate != appData.hourlyRate) {
+      appData.setHourlyRate(newRate);
+    }
   }
 
   void _saveSettingsDelayed() {
-    _saveSettings(); // Gọi hàm lưu trực tiếp
+    _saveSettings();
   }
 
-  @override
-  void dispose() {
-    _shopNameController.removeListener(_saveSettingsDelayed);
-    _shopAddressController.removeListener(_saveSettingsDelayed);
-    _shopPhoneController.removeListener(_saveSettingsDelayed);
-    _bankNameController.removeListener(_saveSettingsDelayed);
-    _bankAccountNumberController.removeListener(_saveSettingsDelayed);
-    _bankAccountHolderController.removeListener(_saveSettingsDelayed);
-    _qrImageUrlController.removeListener(_saveSettingsDelayed);
-
-    _shopNameController.dispose();
-    _shopAddressController.dispose();
-    _shopPhoneController.dispose();
-    _hourlyRateController.dispose();
-    _customPaperNameController.dispose();
-    _customPaperWidthController.dispose();
-    _customPaperHeightController.dispose();
-    _bankNameController.dispose(); // Dispose
-    _bankAccountNumberController.dispose(); // Dispose
-    _bankAccountHolderController.dispose(); // Dispose
-    _qrImageUrlController.dispose(); // Dispose
-    super.dispose();
-  }
-
-  // Hàm hiển thị dialog thêm giấy tùy chỉnh
   void _showAddCustomPaperSizeDialog(AppDataProvider appDataProvider) {
     _customPaperNameController.clear();
     _customPaperWidthController.clear();
@@ -125,7 +154,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        // Đổi tên context thành dialogContext
         return AlertDialog(
           title: const Text('Thêm kích thước giấy tùy chỉnh'),
           content: Column(
@@ -176,7 +204,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     heightMm != null &&
                     widthMm > 0 &&
                     heightMm > 0) {
-                  // Chuyển đổi mm sang points (1mm = 72/25.4 points ≈ 2.8346 points)
                   final widthPoints = widthMm * (72 / 25.4);
                   final heightPoints = heightMm * (72 / 25.4);
 
@@ -189,7 +216,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                   Navigator.of(dialogContext).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    // Show snackbar in the main context
                     const SnackBar(
                       content: Text('Đã thêm kích thước giấy tùy chỉnh!'),
                     ),
@@ -212,30 +238,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Lắng nghe AppDataProvider để cập nhật UI tự động
+    debugPrint('SettingsScreen build() called.');
     final appDataProvider = context.watch<AppDataProvider>();
 
-    // Tạo danh sách tất cả các loại giấy có thể chọn
     Map<String, String> allPaperSizes = {..._standardPaperSizes};
     for (var customSize in appDataProvider.customPaperSizes) {
       allPaperSizes[customSize.name] = '${customSize.name} (Tùy chỉnh)';
     }
 
-    return Scaffold(
+    if (appDataProvider.isLoading) {
+      debugPrint('SettingsScreen: AppDataProvider is loading, showing CircularProgressIndicator.');
+      return Scaffold(
+        appBar: AppBar(title: const Text('Cài đặt')), // Giữ nguyên AppBar để không bị mất
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    debugPrint('SettingsScreen: AppDataProvider NOT loading, building content.');
 
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Cài đặt ứng dụng'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
       body: SingleChildScrollView(
-        // <-- SỬ DỤNG SingleChildScrollView TRỰC TIẾP
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Cài đặt',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-
-            // --- Phần cài đặt thông tin quán ---
             Card(
               margin: const EdgeInsets.only(bottom: 16),
               elevation: 4,
@@ -277,10 +306,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Cài đặt QR Thanh toán
+                    Text(
+                      'Giá bàn chung (VNĐ/giờ)',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _hourlyRateController,
+                      decoration: const InputDecoration(
+                        labelText: 'Giá tiền mỗi giờ',
+                        border: OutlineInputBorder(),
+                        hintText: 'VD: 30000',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 20),
+
                     Text(
                       'Cài đặt QR Thanh toán:',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 10),
                     TextField(
@@ -317,7 +361,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         hintText: 'VD: https://example.com/your_qr.png',
                         border: OutlineInputBorder(),
                         helperText:
-                            'Tải ảnh QR lên dịch vụ lưu trữ ảnh công khai và dán URL vào đây.',
+                        'Tải ảnh QR lên dịch vụ lưu trữ ảnh công khai và dán URL vào đây.',
                       ),
                       keyboardType: TextInputType.url,
                     ),
@@ -326,7 +370,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // --- Phần cài đặt kích thước giấy in ---
             Card(
               margin: const EdgeInsets.only(bottom: 16),
               elevation: 4,
@@ -345,12 +388,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       value:
-                          appDataProvider.selectedPaperSize.isEmpty &&
-                              allPaperSizes.isNotEmpty
-                          ? allPaperSizes
-                                .keys
-                                .first // Đặt giá trị mặc định hợp lệ nếu selectedPaperSize rỗng
-                          : appDataProvider.selectedPaperSize,
+                      appDataProvider.selectedPaperSize.isEmpty &&
+                          allPaperSizes.isNotEmpty
+                          ? allPaperSizes.keys.first
+                          : (allPaperSizes.containsKey(appDataProvider.selectedPaperSize)
+                          ? appDataProvider.selectedPaperSize
+                          : allPaperSizes.keys.first),
                       decoration: const InputDecoration(
                         labelText: 'Chọn kích thước giấy',
                         border: OutlineInputBorder(),
@@ -377,7 +420,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         label: const Text('Thêm giấy tùy chỉnh'),
                       ),
                     ),
-                    // Hiển thị danh sách giấy tùy chỉnh để xóa
                     if (appDataProvider.customPaperSizes.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       const Text(
@@ -386,19 +428,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       ListView.builder(
                         shrinkWrap: true,
-                        // Quan trọng để ListView lồng trong Column
                         physics: const NeverScrollableScrollPhysics(),
-                        // Vô hiệu hóa cuộn riêng của ListView
                         itemCount: appDataProvider.customPaperSizes.length,
                         itemBuilder: (context, index) {
                           final customSize =
-                              appDataProvider.customPaperSizes[index];
+                          appDataProvider.customPaperSizes[index];
                           return ListTile(
                             title: Text(customSize.name),
                             subtitle: Text(
                               '${(customSize.widthPoints / (72 / 25.4)).toStringAsFixed(1)}mm x '
-                              '${(customSize.heightPoints / (72 / 25.4)).toStringAsFixed(1)}mm '
-                              '(${customSize.widthPoints.toStringAsFixed(1)} x ${customSize.heightPoints.toStringAsFixed(1)} points)',
+                                  '${(customSize.heightPoints / (72 / 25.4)).toStringAsFixed(1)}mm '
+                                  '(${customSize.widthPoints.toStringAsFixed(1)} x ${customSize.heightPoints.toStringAsFixed(1)} points)',
                             ),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
@@ -408,13 +448,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 );
                                 if (appDataProvider.selectedPaperSize ==
                                     customSize.name) {
-                                  // Nếu giấy đang chọn bị xóa, đặt lại mặc định hoặc chọn giấy tùy chỉnh đầu tiên nếu có
                                   appDataProvider.updateSelectedPaperSize(
                                     appDataProvider.customPaperSizes.isNotEmpty
                                         ? appDataProvider
-                                              .customPaperSizes
-                                              .first
-                                              .name
+                                        .customPaperSizes
+                                        .first
+                                        .name
                                         : 'roll80',
                                   );
                                 }
@@ -429,7 +468,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // --- Phần sao lưu và phục hồi dữ liệu ---
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(
@@ -482,6 +520,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _showClearAllInvoicesDialog(context, appDataProvider);
+                      },
+                      icon: const Icon(Icons.clear_all),
+                      label: const Text('Xóa tất cả hóa đơn'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -489,6 +539,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showClearAllInvoicesDialog(BuildContext context, AppDataProvider appDataProvider) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Xóa tất cả hóa đơn?'),
+          content: const Text('Bạn có chắc chắn muốn xóa TẤT CẢ hóa đơn? Hành động này không thể hoàn tác.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Hủy'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Xóa Tất Cả'),
+              onPressed: () {
+                appDataProvider.clearAllInvoices();
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Đã xóa tất cả hóa đơn thành công!')),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

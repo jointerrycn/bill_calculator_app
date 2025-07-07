@@ -1,4 +1,5 @@
 // lib/screens/home_screen.dart
+import 'package:bill_calculator_app/screens/PrinterSettingsScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart'; // Để định dạng thời gian và tiền tệ
@@ -29,7 +30,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>   {
   int _selectedIndex = 0; // Index của tab được chọn trong BottomNavigationBar
 
   void _onItemTapped(int index) {
@@ -52,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
     String? selectedTableId = availableTables.isNotEmpty
         ? availableTables.first.id
         : null;
-
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -115,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const TableManagementScreen(),
       const InvoiceHistoryScreen(),
       const SettingsScreen(),
+      const PrinterSettingsScreen()
     ];
 
     return Scaffold(
@@ -135,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.table_chart), label: 'Bàn'),
           BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Lịch sử HĐ'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Cài đặt'),
+          BottomNavigationBarItem(icon: Icon(Icons.print), label: 'In ấn'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).colorScheme.primary,
@@ -310,45 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-
                       // Các nút hành động (Bắt đầu / Thanh toán)
-                   /*   Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          if (!currentTable.isOccupied)
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => appDataProvider.toggleTableStatus(currentTable),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-                                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                ),
-                                child: const Text('Bắt đầu'),
-                              ),
-                            ),
-                          if (currentTable.isOccupied)
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => _showAddBillDialog(
-                                  context,
-                                  currentTable,
-                                  totalBill,
-                                  appDataProvider,
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blueAccent,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-                                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                ),
-                                child: const Text('Thanh toán'),
-                              ),
-                            ),
-                          // ĐẢM BẢO KHÔNG CÓ NÚT "CHUYỂN BÀN" NÀO Ở ĐÂY NỮA!
-                        ],
-                      ),*/
                     ],
                   ),
                 ),
@@ -394,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-                            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            textStyle: const TextStyle(fontSize: 13),
                           ),
                           child: const Text('Bắt đầu'),
                         ),
@@ -412,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             backgroundColor: Colors.blueAccent,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-                            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            textStyle: const TextStyle(fontSize: 13),
                           ),
                           child: const Text('Thanh toán'),
                         ),
@@ -433,6 +397,16 @@ class _HomeScreenState extends State<HomeScreen> {
       BilliardTable table,
       AppDataProvider appDataProvider,
       ) async {
+    if (table.startTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bàn ${table.name} đang trống. Không thể xem chi tiết.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return; // Dừng hàm, không hiển thị dialog
+    }
+
     return showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
