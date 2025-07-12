@@ -1,21 +1,21 @@
 // --- Class Printer model của bạn (trong printer.dart hoặc tương tự) ---
 enum ConnectionType { NETWORK, BLE }
 
-class Printer {
+class Printer2 {
   final String? name;
   final String? address;
   final ConnectionType? connectionType;
   bool isConnected;
 
-  Printer({
+  Printer2({
     this.name,
     this.address,
     this.connectionType,
     this.isConnected = false,
   });
 
-  factory Printer.fromJson(Map<String, dynamic> json) {
-    return Printer(
+  factory Printer2.fromJson(Map<String, dynamic> json) {
+    return Printer2(
       name: json['name'] as String?,
       address: json['address'] as String?,
       connectionType: (json['connectionType'] as String?) != null
@@ -37,13 +37,13 @@ class Printer {
     };
   }
 
-  Printer copyWith({
+  Printer2 copyWith({
     String? name,
     String? address,
     ConnectionType? connectionType,
     bool? isConnected,
   }) {
-    return Printer(
+    return Printer2(
       name: name ?? this.name,
       address: address ?? this.address,
       connectionType: connectionType ?? this.connectionType,

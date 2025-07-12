@@ -4,7 +4,9 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   file_saver
+  flutter_thermal_printer
   permission_handler_windows
+  printing
   share_plus
   url_launcher_windows
 )

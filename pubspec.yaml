@@ -32,7 +32,10 @@ dependencies:
   flutter_esc_pos_network: ^1.0.3 # Sử dụng phiên bản mới nhất
   esc_pos_utils_plus: ^2.0.4    # Sử dụng phiên bản mới nhất
     # Bluetooth Printing
-  flutter_bluetooth_printer: ^2.19.0
+
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  flutter_thermal_printer: ^1.2.1+1
 
 
 dev_dependencies:

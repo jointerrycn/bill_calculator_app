@@ -27,13 +27,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   final TextEditingController _customPaperWidthController = TextEditingController();
   final TextEditingController _customPaperHeightController = TextEditingController();
 
-  static const Map<String, String> _standardPaperSizes = {
-    'roll80': 'Giấy in nhiệt 80mm',
-    'roll57': 'Giấy in nhiệt 57mm',
-    'a4': 'A4 (210x297mm)',
-    'a5': 'A5 (148x210mm)',
-    'letter': 'Letter (216x279mm)',
-  };
 
 
   @override
@@ -241,11 +234,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     debugPrint('SettingsScreen build() called.');
     final appDataProvider = context.watch<AppDataProvider>();
 
-    Map<String, String> allPaperSizes = {..._standardPaperSizes};
-    for (var customSize in appDataProvider.customPaperSizes) {
-      allPaperSizes[customSize.name] = '${customSize.name} (Tùy chỉnh)';
-    }
-
     if (appDataProvider.isLoading) {
       debugPrint('SettingsScreen: AppDataProvider is loading, showing CircularProgressIndicator.');
       return Scaffold(
@@ -304,23 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                         border: OutlineInputBorder(),
                       ),
                     ),
-                    const SizedBox(height: 20),
-
-                    Text(
-                      'Giá bàn chung (VNĐ/giờ)',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _hourlyRateController,
-                      decoration: const InputDecoration(
-                        labelText: 'Giá tiền mỗi giờ',
-                        border: OutlineInputBorder(),
-                        hintText: 'VD: 30000',
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 20),
+/*                    const SizedBox(height: 20),
 
                     Text(
                       'Cài đặt QR Thanh toán:',
@@ -364,110 +336,11 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                         'Tải ảnh QR lên dịch vụ lưu trữ ảnh công khai và dán URL vào đây.',
                       ),
                       keyboardType: TextInputType.url,
-                    ),
+                    ),*/
                   ],
                 ),
               ),
             ),
-
-            Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Kích thước giấy in hóa đơn',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value:
-                      appDataProvider.selectedPaperSize.isEmpty &&
-                          allPaperSizes.isNotEmpty
-                          ? allPaperSizes.keys.first
-                          : (allPaperSizes.containsKey(appDataProvider.selectedPaperSize)
-                          ? appDataProvider.selectedPaperSize
-                          : allPaperSizes.keys.first),
-                      decoration: const InputDecoration(
-                        labelText: 'Chọn kích thước giấy',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: allPaperSizes.entries.map((entry) {
-                        return DropdownMenuItem<String>(
-                          value: entry.key,
-                          child: Text(entry.value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          appDataProvider.updateSelectedPaperSize(newValue);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 15),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton.icon(
-                        onPressed: () =>
-                            _showAddCustomPaperSizeDialog(appDataProvider),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Thêm giấy tùy chỉnh'),
-                      ),
-                    ),
-                    if (appDataProvider.customPaperSizes.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Giấy tùy chỉnh của bạn:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: appDataProvider.customPaperSizes.length,
-                        itemBuilder: (context, index) {
-                          final customSize =
-                          appDataProvider.customPaperSizes[index];
-                          return ListTile(
-                            title: Text(customSize.name),
-                            subtitle: Text(
-                              '${(customSize.widthPoints / (72 / 25.4)).toStringAsFixed(1)}mm x '
-                                  '${(customSize.heightPoints / (72 / 25.4)).toStringAsFixed(1)}mm '
-                                  '(${customSize.widthPoints.toStringAsFixed(1)} x ${customSize.heightPoints.toStringAsFixed(1)} points)',
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                appDataProvider.removeCustomPaperSize(
-                                  customSize.name,
-                                );
-                                if (appDataProvider.selectedPaperSize ==
-                                    customSize.name) {
-                                  appDataProvider.updateSelectedPaperSize(
-                                    appDataProvider.customPaperSizes.isNotEmpty
-                                        ? appDataProvider
-                                        .customPaperSizes
-                                        .first
-                                        .name
-                                        : 'roll80',
-                                  );
-                                }
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(

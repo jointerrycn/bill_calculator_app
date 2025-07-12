@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:printing/printing.dart'; // Import để hiển thị PDF
 
 import 'package:bill_calculator_app/models/billiard_table.dart';
 import 'package:bill_calculator_app/models/menu_item.dart';
@@ -11,6 +14,7 @@ import 'package:bill_calculator_app/providers/app_data_provider.dart';
 import '../models/invoice.dart';
 import '../models/ordered_item.dart';
 import '../services/ThermalPrinterService.dart';
+import 'ReceiptPreview.dart';
 
 class BillPaymentDialog extends StatefulWidget {
   final BilliardTable table;
@@ -56,6 +60,8 @@ class _BillPaymentDialogState extends State<BillPaymentDialog> {
   @override
   Widget build(BuildContext context) {
     final appDataProvider = Provider.of<AppDataProvider>(context);
+    final thermalPrinterService = Provider.of<ThermalPrinterService>(context, listen: false);
+
     final String bankName = appDataProvider.bankName;
     final String bankAccountNumber = appDataProvider.bankAccountNumber;
     final String bankAccountHolder = appDataProvider.bankAccountHolder;
@@ -206,21 +212,22 @@ class _BillPaymentDialogState extends State<BillPaymentDialog> {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: Colors.blueGrey,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   textStyle: const TextStyle(fontSize: 13),
                 ),
-                child: const Text('Thanh toán'),
+                child: const Text('Xem trước'),
                 onPressed: () async {
-                  final BilliardTable tableToBill = appDataProvider.billiardTables.firstWhere((t) => t.id == widget.table.id);
+                  // Tạo đối tượng Invoice (giống như bạn đã làm cho in nhiệt)
+                  final BilliardTable tableToBill = updatedTable;
                   final DateTime billDateTime = DateTime.now();
                   final DateTime startTime = tableToBill.startTime ?? billDateTime;
                   final DateTime endTime = tableToBill.endTime ?? billDateTime;
                   final Duration playedDuration = tableToBill.displayTotalTime;
                   final double hourlyRateAtTimeOfBill = tableToBill.price;
-                  final double totalTableCost = (playedDuration.inMinutes / 60.0) * hourlyRateAtTimeOfBill;
 
+                  final double totalTableCost = (playedDuration.inMinutes / 60.0) * hourlyRateAtTimeOfBill;
                   double totalOrderedItemsCostFinal = 0;
                   for (var orderedItem in tableToBill.orderedItems) {
                     final MenuItem? item = appDataProvider.menuItems.firstWhereOrNull((menu) => menu.id == orderedItem.itemId);
@@ -243,7 +250,79 @@ class _BillPaymentDialogState extends State<BillPaymentDialog> {
                     finalAmount: _finalAmount,
                   );
 
-                  appDataProvider.addInvoice(invoice);
+                  // ✅ HIỂN THỊ DIALOG XEM TRƯỚC
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return AlertDialog(
+                        title: const Text('Xem trước Hóa đơn'),
+                        contentPadding: EdgeInsets.zero, // Quan trọng để ReceiptPreview chiếm hết không gian
+                        content: SingleChildScrollView( // Để hóa đơn dài có thể cuộn
+                          child: ReceiptPreview(
+                            invoice: invoice,
+                            appDataProvider: appDataProvider,
+                            fontSize: 10.0, // Bạn có thể điều chỉnh font size ở đây
+                          ),
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            child: const Text('Đóng'),
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                // ... nút Thanh toán (giữ nguyên logic in nhiệt)
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  textStyle: const TextStyle(fontSize: 13),
+                ),
+                child: const Text('Thanh toán'),
+                onPressed: () async {
+                  // ... logic tạo Invoice và gọi thermalPrinterService.generateReceiptFromInvoice
+                  // ... và thermalPrinterService.printTicket
+                  final BilliardTable tableToBill = updatedTable;
+                  final DateTime billDateTime = DateTime.now();
+                  final DateTime startTime = tableToBill.startTime ?? billDateTime;
+                  final DateTime endTime = tableToBill.endTime ?? billDateTime;
+                  final Duration playedDuration = tableToBill.displayTotalTime;
+                  final double hourlyRateAtTimeOfBill = tableToBill.price;
+
+                  final double totalTableCost = (playedDuration.inMinutes / 60.0) * hourlyRateAtTimeOfBill;
+                  double totalOrderedItemsCostFinal = 0;
+                  for (var orderedItem in tableToBill.orderedItems) {
+                    final MenuItem? item = appDataProvider.menuItems.firstWhereOrNull((menu) => menu.id == orderedItem.itemId);
+                    if (item != null) {
+                      totalOrderedItemsCostFinal += item.price * orderedItem.quantity;
+                    }
+                  }
+
+                  final invoice = Invoice(
+                    tableName: tableToBill.name,
+                    billDateTime: billDateTime,
+                    startTime: startTime,
+                    endTime: endTime,
+                    playedDuration: playedDuration,
+                    hourlyRateAtTimeOfBill: hourlyRateAtTimeOfBill,
+                    totalTableCost: totalTableCost,
+                    orderedItems: List<OrderedItem>.from(tableToBill.orderedItems),
+                    totalOrderedItemsCost: totalOrderedItemsCostFinal,
+                    discountAmount: _discount,
+                    finalAmount: _finalAmount,
+                  );
+                  appDataProvider.addInvoice(invoice); // Thêm hóa đơn vào danh sách
+
 
                   showDialog(
                     context: context,
@@ -269,22 +348,29 @@ class _BillPaymentDialogState extends State<BillPaymentDialog> {
                   );
 
                   try {
-                    final bytes = await ThermalPrinterService().generateReceiptFromInvoice(invoice);
-                    final result = await ThermalPrinterService().printTicket(bytes);
+                    PrintResult printResult = await thermalPrinterService.printInvoice(invoice); // Khởi tạo với lỗi mặc định
 
-                    Navigator.of(context, rootNavigator: true).pop();
+                    if (Navigator.of(context, rootNavigator: true).canPop()) {
+                      Navigator.of(context, rootNavigator: true).pop();
+                    }
 
-                    if (result == PrintResult.success) {
+                    if (printResult == PrintResult.success) { // Sử dụng enum PrintResult
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Hóa đơn đã được in thành công.')),
                       );
-                    } else if (result == PrintResult.noDeviceSelected) {
+                    } else if (printResult == PrintResult.noDeviceSelected) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Chưa chọn máy in Bluetooth.')),
+                        const SnackBar(
+                          content: Text('Chưa chọn máy in hoặc máy in không kết nối.'),
+                          backgroundColor: Colors.orange,),
                       );
-                    } else {
+                    }
+                    else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Lỗi khi in hóa đơn.')),
+                        const SnackBar(
+                          content: Text('Lỗi khi in hóa đơn.'),
+                          backgroundColor: Colors.orange,
+                        ),
                       );
                     }
                   } catch (e) {
@@ -297,6 +383,7 @@ class _BillPaymentDialogState extends State<BillPaymentDialog> {
                     debugPrint('Lỗi in hóa đơn Bluetooth: $e');
                   }
 
+                  // ✅ Chắc chắn rằng việc thêm giao dịch và reset bàn được thực hiện SAU KHI in
                   appDataProvider.addTransaction(
                     tableToBill.id,
                     List<OrderedItem>.from(tableToBill.orderedItems),
@@ -305,7 +392,7 @@ class _BillPaymentDialogState extends State<BillPaymentDialog> {
                     _finalAmount,
                   );
                   appDataProvider.resetBilliardTable(tableToBill);
-                  Navigator.of(context).pop();
+                  Navigator.of(context).pop(); // Đóng BillPaymentDialog
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Đã thanh toán thành công cho bàn ${tableToBill.name}!')),
                   );

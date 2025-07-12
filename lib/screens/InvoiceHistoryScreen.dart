@@ -1,4 +1,5 @@
 // lib/screens/invoice_history_screen.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -7,8 +8,7 @@ import 'package:bill_calculator_app/models/invoice.dart';
 import 'package:bill_calculator_app/models/menu_item.dart';
 import 'package:collection/collection.dart';
 
-// Import PrintService
-import 'package:bill_calculator_app/services/print_service.dart'; // Đảm bảo đường dẫn đúng
+import '../services/ThermalPrinterService.dart'; // Đảm bảo đường dẫn đúng
 
 class InvoiceHistoryScreen extends StatefulWidget {
   const InvoiceHistoryScreen({super.key});
@@ -112,36 +112,27 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     );
   }
 
-  // =========================================================================
-  // BẮT ĐẦU: Các hàm mới cho chức năng IN HÓA ĐƠN
-  // =========================================================================
-
-  // Hàm xử lý việc in hóa đơn (trong _InvoiceHistoryScreenState)
-  // Hàm này sẽ gọi PrintService
+  // --- CẬP NHẬT: Hàm xử lý việc in hóa đơn ---
   Future<void> _handlePrintInvoice(BuildContext context, Invoice invoice, AppDataProvider appDataProvider) async {
+    final thermalPrinterService = Provider.of<ThermalPrinterService>(context, listen: false);
+
     // Hiển thị dialog loading
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black.withOpacity(0.3),
-      builder: (_) => WillPopScope( // Ngăn không cho đóng dialog bằng nút Back
+      builder: (_) => WillPopScope(
         onWillPop: () async => false,
         child: Center(
           child: Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
             child: const Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text(
-                  'Đang tạo hóa đơn...',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                Text('Đang in hóa đơn...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -149,39 +140,48 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       ),
     );
 
+
+
     try {
-      // Gọi PrintService để tạo bytes của PDF
-      final pdfBytes = await PrintService.generateInvoicePdfBytes(
-        invoice: invoice,
-        appDataProvider: appDataProvider,
-      );
 
+
+      PrintResult printResult = await thermalPrinterService.printInvoice(invoice); // Khởi tạo với lỗi mặc định
       // Đóng dialog loading
-      Navigator.of(context, rootNavigator: true).pop();
-
-      // Gọi PrintService để hiển thị giao diện in
-      await PrintService.printPdf(context, pdfBytes);
-
-      // Hiển thị SnackBar thành công
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hóa đơn đã được gửi đến máy in.')),
-      );
-    } catch (e) {
-      // Đóng dialog loading nếu có lỗi và nó vẫn đang mở
       if (Navigator.of(context, rootNavigator: true).canPop()) {
         Navigator.of(context, rootNavigator: true).pop();
       }
-      // Hiển thị SnackBar lỗi (hoặc AlertDialog chi tiết hơn)
+
+      // Xử lý kết quả in
+      if (printResult == PrintResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Hóa đơn đã được in thành công.')),
+        );
+      } else if (printResult == PrintResult.noDeviceSelected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Chưa chọn máy in hoặc máy in không kết nối.'),
+            backgroundColor: Colors.orange,),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi in hóa đơn: ${printResult.toString().split('.').last}'), // Hiển thị tên lỗi rõ hơn
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Đóng dialog loading ngay cả khi có lỗi
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi chuẩn bị in hóa đơn: $e')),
+        SnackBar(content: Text('Lỗi ngoại lệ khi in hóa đơn: $e'),
+          backgroundColor: Colors.red,),
       );
-      print('Lỗi in: $e'); // In lỗi ra console để debug
+      debugPrint('Lỗi ngoại lệ khi in hóa đơn: $e');
     }
   }
-
-  // =========================================================================
-  // KẾT THÚC: Các hàm mới cho chức năng IN HÓA ĐƠN
-  // =========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -218,8 +218,6 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         builder: (context, appDataProvider, child) {
           // Lọc danh sách hóa đơn theo ngày đã chọn
           final List<Invoice> filteredInvoices = appDataProvider.invoices.where((invoice) {
-            // Cập nhật logic: Nếu _selectedDate là null, hiển thị TẤT CẢ hóa đơn.
-            // Nếu bạn muốn mặc định là "hôm nay", hãy thay đổi lại logic này.
             if (_selectedDate == null) {
               return true; // Hiển thị TẤT CẢ hóa đơn khi không có bộ lọc ngày
             }
